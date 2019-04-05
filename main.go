@@ -1,30 +1,50 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 )
 
-// todo: get pull requests (paginated) using ?head=BRANCH for every open unprotected BRANCH, check if they're merged
-// todo: Dockerfile, GitHub action
+// todo: get closed pull requests sorted by last updated time; stop processing after some cut-off (3h); get all unprotected branches - if any branches match those of the recently closed pull requests, delete them
 // todo: long flags, flags and env vars for --token, --repo, optional --owner (implicitly check all repos)
-// todo: do not require token so public repos can be analyzed
+// todo: Dockerfile, GitHub action
+
+type PullRequest struct {
+	Number uint64 `json:"number"`
+
+	PullRequestHead struct {
+		Ref string `json:"ref"`
+	} `json:"head"`
+}
+
+type PullRequestResult struct {
+	PullRequests []PullRequest
+}
+
+func makeGithubAPIRequest(url string, method string) (res *http.Response, err error) {
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	token := os.Getenv("GITHUB_TOKEN")
+	req.Header.Add("Authorization", "token "+token)
+	res, err = client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
 
 func main() {
-	token := os.Getenv("GITHUB_TOKEN")
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/OWNER/REPO/branches?protected=false&per_page=100", nil)
-	req.Header.Add("Authorization", "token "+token)
+	res, err := makeGithubAPIRequest("https://api.github.com/repos/OWNER/REPO/pulls?state=closed&sort=updated&direction=desc&per_page=100", "GET")
 	if err != nil {
 		panic(err)
 	}
-	res, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	fmt.Printf("%s", body)
+	decoder := json.NewDecoder(res.Body)
+	var x PullRequestResult
+	err = decoder.Decode(&x.PullRequests)
+	fmt.Println(x)
 }
