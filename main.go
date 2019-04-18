@@ -18,13 +18,20 @@ type PullRequest struct {
 	Number   uint64    `json:"number"`
 	ClosedAt time.Time `json:"closed_at"`
 
-	PullRequestHead struct {
+	Head struct {
 		Ref string `json:"ref"`
 	} `json:"head"`
 }
 
 type PullRequestResult struct {
 	PullRequests []PullRequest
+}
+type Branch struct {
+	Name string `json:"name"`
+}
+
+type BranchResult struct {
+	Branches []Branch
 }
 
 func makeGithubAPIRequest(url string, method string, token string) (res *http.Response, err error) {
@@ -43,34 +50,33 @@ func makeGithubAPIRequest(url string, method string, token string) (res *http.Re
 
 func ListClosedPullRequests(user string, repo string, days int, token string) []PullRequest {
 	pullRequests := make([]PullRequest, 0, 1)
-	page := 1
 	now := time.Now()
 	maxAgeHours := float64(days) * 24
 
-	for ; ; page++ {
+	for page := 1; ; page++ {
 		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page), "GET", token)
 
 		if err != nil {
 			panic(err)
 		}
 
-		decoder := json.NewDecoder(res.Body)
-		var pullRequestResult PullRequestResult
-		err = decoder.Decode(&pullRequestResult.PullRequests)
+		d := json.NewDecoder(res.Body)
+		var prr PullRequestResult
+		err = d.Decode(&prr.PullRequests)
 
 		if err != nil {
 			panic(err)
 		}
 
-		if len(pullRequestResult.PullRequests) == 0 {
+		if len(prr.PullRequests) == 0 {
 			break
 		}
 
-		lastPullRequest := pullRequestResult.PullRequests[len(pullRequestResult.PullRequests)-1]
+		pullRequests = append(pullRequests, prr.PullRequests...)
+
+		lastPullRequest := prr.PullRequests[len(prr.PullRequests)-1]
 		lastPullRequestAge := now.Sub(lastPullRequest.ClosedAt).Hours()
-
-		pullRequests = append(pullRequests, pullRequestResult.PullRequests...)
-
+		//todo: only add pull requests < maxAgeHours?
 		if lastPullRequestAge >= maxAgeHours {
 			break
 		}
@@ -79,12 +85,73 @@ func ListClosedPullRequests(user string, repo string, days int, token string) []
 	return pullRequests
 }
 
+func ListUnprotectedBranches(user string, repo string, token string) []Branch {
+	branches := make([]Branch, 0, 1)
+
+	for page := 1; ; page++ {
+		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/branches?protected=false&per_page=100&page="+strconv.Itoa(page), "GET", token)
+
+		if err != nil {
+			panic(err)
+		}
+
+		d := json.NewDecoder(res.Body)
+		var br BranchResult
+		err = d.Decode(&br.Branches)
+
+		if err != nil {
+			panic(err)
+		}
+
+		if len(br.Branches) == 0 {
+			break
+		}
+
+		branches = append(branches, br.Branches...)
+	}
+
+	return branches
+}
+
+func ListStaleBranches(pullRequests []PullRequest, branches []Branch) []string {
+	branchMap := make(map[string]bool)
+	staleBranches := make([]string, 0, 1)
+
+	for _, branch := range branches {
+		branchMap[branch.Name] = true
+	}
+
+	for _, pr := range pullRequests {
+		if branchMap[pr.Head.Ref] {
+			staleBranches = append(staleBranches, pr.Head.Ref)
+		}
+	}
+
+	return staleBranches
+}
+
+func DeleteBranches(user string, repo string, branches []string, token string) {
+	for _, branch := range branches {
+		_, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/git/refs/heads/"+branch, "DELETE", token)
+
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Deleted ", branch)
+	}
+}
+
 func main() {
 	var token = flag.String("t", os.Getenv("GITHUB_TOKEN"), "GitHub API token")
 	var user = flag.String("u", "", "GitHub user")
 	var repo = flag.String("r", "", "GitHub repo")
 	var days = flag.Int("d", 30, "Max age in days of checked pull requests")
 	flag.Parse()
-	fmt.Println(ListClosedPullRequests(*user, *repo, *days, *token))
+	closedPullRequests := ListClosedPullRequests(*user, *repo, *days, *token)
+	unprotectedBranches := ListUnprotectedBranches(*user, *repo, *token)
+	staleBranches := ListStaleBranches(closedPullRequests, unprotectedBranches)
+	//todo: do not delete branches with open PRs!
+	DeleteBranches(*user, *repo, staleBranches, *token)
 	// u := url.URL{Host: "example.com", Path: "foo"}
 }
