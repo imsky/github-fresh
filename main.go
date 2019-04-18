@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -40,24 +41,40 @@ func makeGithubAPIRequest(url string, method string, token string) (res *http.Re
 	return res, nil
 }
 
-func ListClosedPullRequests(user string, repo string, token string) []PullRequest {
+func ListClosedPullRequests(user string, repo string, days int, token string) []PullRequest {
 	pullRequests := make([]PullRequest, 0, 1)
+	page := 1
+	now := time.Now()
+	maxAgeHours := float64(days) * 24
 
-	res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100", "GET", token)
+	for ; ; page++ {
+		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page), "GET", token)
 
-	if err != nil {
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
+
+		decoder := json.NewDecoder(res.Body)
+		var pullRequestResult PullRequestResult
+		err = decoder.Decode(&pullRequestResult.PullRequests)
+
+		if err != nil {
+			panic(err)
+		}
+
+		if len(pullRequestResult.PullRequests) == 0 {
+			break
+		}
+
+		lastPullRequest := pullRequestResult.PullRequests[len(pullRequestResult.PullRequests)-1]
+		lastPullRequestAge := now.Sub(lastPullRequest.ClosedAt).Hours()
+
+		pullRequests = append(pullRequests, pullRequestResult.PullRequests...)
+
+		if lastPullRequestAge >= maxAgeHours {
+			break
+		}
 	}
-
-	decoder := json.NewDecoder(res.Body)
-	var pullRequestResult PullRequestResult
-	err = decoder.Decode(&pullRequestResult.PullRequests)
-
-	if err != nil {
-		panic(err)
-	}
-
-	pullRequests = append(pullRequests, pullRequestResult.PullRequests...)
 
 	return pullRequests
 }
@@ -66,8 +83,8 @@ func main() {
 	var token = flag.String("t", os.Getenv("GITHUB_TOKEN"), "GitHub API token")
 	var user = flag.String("u", "", "GitHub user")
 	var repo = flag.String("r", "", "GitHub repo")
-	//var days = flag.Int("d", 30, "Max age in days of checked pull requests")
+	var days = flag.Int("d", 30, "Max age in days of checked pull requests")
 	flag.Parse()
-	fmt.Println(ListClosedPullRequests(*user, *repo, *token))
+	fmt.Println(ListClosedPullRequests(*user, *repo, *days, *token))
 	// u := url.URL{Host: "example.com", Path: "foo"}
 }
