@@ -10,8 +10,16 @@ import (
 	"time"
 )
 
-// todo: get closed pull requests sorted by last updated time; stop processing after some cut-off (3h); get all unprotected branches - if any branches match those of the recently closed pull requests, delete them
-// todo: long flags, flags and env vars for --token, --repo, optional --owner (implicitly check all repos)
+// todo: dry run
+// todo: logging
+// todo: error handling
+// todo: docs
+// todo: comments
+// todo: cross-compile
+// todo: lint and format
+// todo: staticcheck
+// todo: errcheck, structcheck, varcheck, go vet
+// todo: test
 // todo: Dockerfile, GitHub action
 
 type PullRequest struct {
@@ -24,19 +32,12 @@ type PullRequest struct {
 	} `json:"head"`
 }
 
-type PullRequestResult struct {
-	PullRequests []PullRequest
-}
 type Branch struct {
 	Name string `json:"name"`
 
 	Commit struct {
 		SHA string `json:"sha"`
 	} `json:"commit"`
-}
-
-type BranchResult struct {
-	Branches []Branch
 }
 
 func makeGithubAPIRequest(url string, method string, token string) (res *http.Response, err error) {
@@ -53,7 +54,7 @@ func makeGithubAPIRequest(url string, method string, token string) (res *http.Re
 	return res, nil
 }
 
-func ListClosedPullRequests(user string, repo string, days int, token string) []PullRequest {
+func listClosedPullRequests(user string, repo string, days int, token string) []PullRequest {
 	pullRequests := make([]PullRequest, 0, 1)
 	now := time.Now()
 	maxAgeHours := float64(days) * 24
@@ -67,20 +68,22 @@ func ListClosedPullRequests(user string, repo string, days int, token string) []
 		}
 
 		d := json.NewDecoder(res.Body)
-		var prr PullRequestResult
-		err = d.Decode(&prr.PullRequests)
+		var prs struct {
+			PullRequests []PullRequest
+		}
+		err = d.Decode(&prs.PullRequests)
 
 		if err != nil {
 			panic(err)
 		}
 
-		if len(prr.PullRequests) == 0 {
+		if len(prs.PullRequests) == 0 {
 			break
 		}
 
-		pullRequests = append(pullRequests, prr.PullRequests...)
+		pullRequests = append(pullRequests, prs.PullRequests...)
 
-		lastPullRequest := prr.PullRequests[len(prr.PullRequests)-1]
+		lastPullRequest := prs.PullRequests[len(prs.PullRequests)-1]
 		lastPullRequestAge := now.Sub(lastPullRequest.ClosedAt).Hours()
 		//todo: only add pull requests < maxAgeHours?
 		if lastPullRequestAge >= maxAgeHours {
@@ -91,7 +94,7 @@ func ListClosedPullRequests(user string, repo string, days int, token string) []
 	return pullRequests
 }
 
-func ListUnprotectedBranches(user string, repo string, token string) []Branch {
+func listUnprotectedBranches(user string, repo string, token string) []Branch {
 	branches := make([]Branch, 0, 1)
 
 	for page := 1; ; page++ {
@@ -102,24 +105,26 @@ func ListUnprotectedBranches(user string, repo string, token string) []Branch {
 		}
 
 		d := json.NewDecoder(res.Body)
-		var br BranchResult
-		err = d.Decode(&br.Branches)
+		var bs struct {
+			Branches []Branch
+		}
+		err = d.Decode(&bs.Branches)
 
 		if err != nil {
 			panic(err)
 		}
 
-		if len(br.Branches) == 0 {
+		if len(bs.Branches) == 0 {
 			break
 		}
 
-		branches = append(branches, br.Branches...)
+		branches = append(branches, bs.Branches...)
 	}
 
 	return branches
 }
 
-func ListStaleBranches(closedPullRequests []PullRequest, branches []Branch) []string {
+func listStaleBranches(closedPullRequests []PullRequest, branches []Branch) []string {
 	branchMap := make(map[string]Branch)
 	staleBranches := make([]string, 0, 1)
 
@@ -137,7 +142,7 @@ func ListStaleBranches(closedPullRequests []PullRequest, branches []Branch) []st
 	return staleBranches
 }
 
-func DeleteBranches(user string, repo string, branches []string, token string) {
+func deleteBranches(user string, repo string, branches []string, token string) {
 	for _, branch := range branches {
 		_, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/git/refs/heads/"+branch, "DELETE", token)
 
@@ -150,19 +155,32 @@ func DeleteBranches(user string, repo string, branches []string, token string) {
 }
 
 func run(user string, repo string, days int, token string) {
-	closedPullRequests := ListClosedPullRequests(user, repo, days, token)
-	unprotectedBranches := ListUnprotectedBranches(user, repo, token)
-	staleBranches := ListStaleBranches(closedPullRequests, unprotectedBranches)
-	fmt.Println(staleBranches)
-	//DeleteBranches(user, repo, staleBranches, token)
+	//todo: validate input
+	closedPullRequests := listClosedPullRequests(user, repo, days, token)
+	unprotectedBranches := listUnprotectedBranches(user, repo, token)
+	staleBranches := listStaleBranches(closedPullRequests, unprotectedBranches)
+	deleteBranches(user, repo, staleBranches, token)
 	// u := url.URL{Host: "example.com", Path: "foo"}
 }
 
+func getDays() int {
+	envDays := os.Getenv("GITHUB_FRESH_DAYS")
+	if envDays != "" {
+		d, err := strconv.Atoi(envDays)
+		if err == nil {
+			if d > 0 {
+				return d
+			}
+		}
+	}
+	return 30
+}
+
 func main() {
-	var token = flag.String("t", os.Getenv("GITHUB_TOKEN"), "GitHub API token")
-	var user = flag.String("u", "", "GitHub user")
-	var repo = flag.String("r", "", "GitHub repo")
-	var days = flag.Int("d", 30, "Max age in days of checked pull requests")
+	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token")
+	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user")
+	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo")
+	var days = flag.Int("days", getDays(), "Max age in days of checked pull requests")
 	flag.Parse()
 	run(*user, *repo, *days, *token)
 }
