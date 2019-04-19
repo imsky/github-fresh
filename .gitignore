@@ -1,7 +1,7 @@
 # Gitignore from Quickstart
 # qkst.io/dotfiles/gitignore
 
-github-fresh
+github-fresh*
 
 # Sensitive files
 *.key

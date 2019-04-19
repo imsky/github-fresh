@@ -14,11 +14,16 @@ import (
 // todo: error handling
 // todo: docs
 // todo: comments
-// todo: cross-compile
 // todo: staticcheck
 // todo: errcheck, structcheck, varcheck, go vet
 // todo: test
-// todo: Dockerfile, GitHub action
+// todo: GitHub action
+
+var (
+	BuildTime string
+	BuildSHA  string
+	Version   string
+)
 
 type pullRequest struct {
 	Number   uint64    `json:"number"`
@@ -57,6 +62,10 @@ func listClosedPullRequests(user string, repo string, days int, token string) []
 	now := time.Now()
 	maxAgeHours := float64(days) * 24
 	state := "closed"
+
+	if maxAgeHours < 24.0 {
+		maxAgeHours = 720.0
+	}
 
 	for page := 1; ; page++ {
 		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state="+state+"&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page), "GET", token)
@@ -157,20 +166,19 @@ func getDays(envVar string) int {
 	if envDays != "" {
 		d, err := strconv.Atoi(envDays)
 		if err == nil {
-			if d > 0 {
-				return d
-			}
+			return d
 		}
 	}
-	return 30
+	return 0
 }
 
-func Run(user string, repo string, days int, token string) {
+func Run(user string, repo string, days int, token string) []string {
 	//todo: validate input
 	closedPullRequests := listClosedPullRequests(user, repo, days, token)
 	unprotectedBranches := listUnprotectedBranches(user, repo, token)
 	staleBranches := listStaleBranches(closedPullRequests, unprotectedBranches)
 	deleteBranches(user, repo, staleBranches, token)
+	return staleBranches
 	// u := url.URL{Host: "example.com", Path: "foo"}
 }
 
