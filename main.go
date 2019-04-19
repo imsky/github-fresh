@@ -20,6 +20,7 @@ type PullRequest struct {
 
 	Head struct {
 		Ref string `json:"ref"`
+		SHA string `json:"sha"`
 	} `json:"head"`
 }
 
@@ -28,6 +29,10 @@ type PullRequestResult struct {
 }
 type Branch struct {
 	Name string `json:"name"`
+
+	Commit struct {
+		SHA string `json:"sha"`
+	} `json:"commit"`
 }
 
 type BranchResult struct {
@@ -52,9 +57,10 @@ func ListClosedPullRequests(user string, repo string, days int, token string) []
 	pullRequests := make([]PullRequest, 0, 1)
 	now := time.Now()
 	maxAgeHours := float64(days) * 24
+	state := "closed"
 
 	for page := 1; ; page++ {
-		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page), "GET", token)
+		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state="+state+"&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page), "GET", token)
 
 		if err != nil {
 			panic(err)
@@ -113,16 +119,17 @@ func ListUnprotectedBranches(user string, repo string, token string) []Branch {
 	return branches
 }
 
-func ListStaleBranches(pullRequests []PullRequest, branches []Branch) []string {
-	branchMap := make(map[string]bool)
+func ListStaleBranches(closedPullRequests []PullRequest, branches []Branch) []string {
+	branchMap := make(map[string]Branch)
 	staleBranches := make([]string, 0, 1)
 
 	for _, branch := range branches {
-		branchMap[branch.Name] = true
+		branchMap[branch.Name] = branch
 	}
 
-	for _, pr := range pullRequests {
-		if branchMap[pr.Head.Ref] {
+	for _, pr := range closedPullRequests {
+		staleBranch, branchExists := branchMap[pr.Head.Ref]
+		if branchExists && staleBranch.Commit.SHA == pr.Head.SHA {
 			staleBranches = append(staleBranches, pr.Head.Ref)
 		}
 	}
@@ -142,16 +149,20 @@ func DeleteBranches(user string, repo string, branches []string, token string) {
 	}
 }
 
+func run(user string, repo string, days int, token string) {
+	closedPullRequests := ListClosedPullRequests(user, repo, days, token)
+	unprotectedBranches := ListUnprotectedBranches(user, repo, token)
+	staleBranches := ListStaleBranches(closedPullRequests, unprotectedBranches)
+	fmt.Println(staleBranches)
+	//DeleteBranches(user, repo, staleBranches, token)
+	// u := url.URL{Host: "example.com", Path: "foo"}
+}
+
 func main() {
 	var token = flag.String("t", os.Getenv("GITHUB_TOKEN"), "GitHub API token")
 	var user = flag.String("u", "", "GitHub user")
 	var repo = flag.String("r", "", "GitHub repo")
 	var days = flag.Int("d", 30, "Max age in days of checked pull requests")
 	flag.Parse()
-	closedPullRequests := ListClosedPullRequests(*user, *repo, *days, *token)
-	unprotectedBranches := ListUnprotectedBranches(*user, *repo, *token)
-	staleBranches := ListStaleBranches(closedPullRequests, unprotectedBranches)
-	//todo: do not delete branches with open PRs!
-	DeleteBranches(*user, *repo, staleBranches, *token)
-	// u := url.URL{Host: "example.com", Path: "foo"}
+	run(*user, *repo, *days, *token)
 }
