@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,18 +11,16 @@ import (
 )
 
 // todo: dry run
-// todo: logging
 // todo: error handling
 // todo: docs
 // todo: comments
 // todo: cross-compile
-// todo: lint and format
 // todo: staticcheck
 // todo: errcheck, structcheck, varcheck, go vet
 // todo: test
 // todo: Dockerfile, GitHub action
 
-type PullRequest struct {
+type pullRequest struct {
 	Number   uint64    `json:"number"`
 	ClosedAt time.Time `json:"closed_at"`
 
@@ -32,7 +30,7 @@ type PullRequest struct {
 	} `json:"head"`
 }
 
-type Branch struct {
+type branch struct {
 	Name string `json:"name"`
 
 	Commit struct {
@@ -54,8 +52,8 @@ func makeGithubAPIRequest(url string, method string, token string) (res *http.Re
 	return res, nil
 }
 
-func listClosedPullRequests(user string, repo string, days int, token string) []PullRequest {
-	pullRequests := make([]PullRequest, 0, 1)
+func listClosedPullRequests(user string, repo string, days int, token string) []pullRequest {
+	pullRequests := make([]pullRequest, 0, 1)
 	now := time.Now()
 	maxAgeHours := float64(days) * 24
 	state := "closed"
@@ -64,17 +62,17 @@ func listClosedPullRequests(user string, repo string, days int, token string) []
 		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/pulls?state="+state+"&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page), "GET", token)
 
 		if err != nil {
-			panic(err)
+			log.Fatalln("Failed to get pull requests", err)
 		}
 
 		d := json.NewDecoder(res.Body)
 		var prs struct {
-			PullRequests []PullRequest
+			PullRequests []pullRequest
 		}
 		err = d.Decode(&prs.PullRequests)
 
 		if err != nil {
-			panic(err)
+			log.Fatalln("Failed to parse pull requests", err)
 		}
 
 		if len(prs.PullRequests) == 0 {
@@ -94,24 +92,24 @@ func listClosedPullRequests(user string, repo string, days int, token string) []
 	return pullRequests
 }
 
-func listUnprotectedBranches(user string, repo string, token string) []Branch {
-	branches := make([]Branch, 0, 1)
+func listUnprotectedBranches(user string, repo string, token string) []branch {
+	branches := make([]branch, 0, 1)
 
 	for page := 1; ; page++ {
 		res, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/branches?protected=false&per_page=100&page="+strconv.Itoa(page), "GET", token)
 
 		if err != nil {
-			panic(err)
+			log.Fatalln("Failed to get branches", err)
 		}
 
 		d := json.NewDecoder(res.Body)
 		var bs struct {
-			Branches []Branch
+			Branches []branch
 		}
 		err = d.Decode(&bs.Branches)
 
 		if err != nil {
-			panic(err)
+			log.Fatalln("Failed to parse branches", err)
 		}
 
 		if len(bs.Branches) == 0 {
@@ -124,16 +122,16 @@ func listUnprotectedBranches(user string, repo string, token string) []Branch {
 	return branches
 }
 
-func listStaleBranches(closedPullRequests []PullRequest, branches []Branch) []string {
-	branchMap := make(map[string]Branch)
+func listStaleBranches(closedPullRequests []pullRequest, branches []branch) []string {
+	branchesByName := make(map[string]branch)
 	staleBranches := make([]string, 0, 1)
 
-	for _, branch := range branches {
-		branchMap[branch.Name] = branch
+	for _, b := range branches {
+		branchesByName[b.Name] = b
 	}
 
 	for _, pr := range closedPullRequests {
-		staleBranch, branchExists := branchMap[pr.Head.Ref]
+		staleBranch, branchExists := branchesByName[pr.Head.Ref]
 		if branchExists && staleBranch.Commit.SHA == pr.Head.SHA {
 			staleBranches = append(staleBranches, pr.Head.Ref)
 		}
@@ -147,24 +145,15 @@ func deleteBranches(user string, repo string, branches []string, token string) {
 		_, err := makeGithubAPIRequest("https://api.github.com/repos/"+user+"/"+repo+"/git/refs/heads/"+branch, "DELETE", token)
 
 		if err != nil {
-			panic(err)
+			log.Fatalln("Failed to delete branch", branch, err)
 		}
 
-		fmt.Println("Deleted ", branch)
+		log.Println("Deleted branch", branch)
 	}
 }
 
-func run(user string, repo string, days int, token string) {
-	//todo: validate input
-	closedPullRequests := listClosedPullRequests(user, repo, days, token)
-	unprotectedBranches := listUnprotectedBranches(user, repo, token)
-	staleBranches := listStaleBranches(closedPullRequests, unprotectedBranches)
-	deleteBranches(user, repo, staleBranches, token)
-	// u := url.URL{Host: "example.com", Path: "foo"}
-}
-
-func getDays() int {
-	envDays := os.Getenv("GITHUB_FRESH_DAYS")
+func getDays(envVar string) int {
+	envDays := os.Getenv(envVar)
 	if envDays != "" {
 		d, err := strconv.Atoi(envDays)
 		if err == nil {
@@ -176,11 +165,20 @@ func getDays() int {
 	return 30
 }
 
+func Run(user string, repo string, days int, token string) {
+	//todo: validate input
+	closedPullRequests := listClosedPullRequests(user, repo, days, token)
+	unprotectedBranches := listUnprotectedBranches(user, repo, token)
+	staleBranches := listStaleBranches(closedPullRequests, unprotectedBranches)
+	deleteBranches(user, repo, staleBranches, token)
+	// u := url.URL{Host: "example.com", Path: "foo"}
+}
+
 func main() {
 	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token")
 	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user")
 	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo")
-	var days = flag.Int("days", getDays(), "Max age in days of checked pull requests")
+	var days = flag.Int("days", getDays("GITHUB_FRESH_DAYS"), "Max age in days of checked pull requests")
 	flag.Parse()
-	run(*user, *repo, *days, *token)
+	Run(*user, *repo, *days, *token)
 }
