@@ -3,38 +3,6 @@
 
 github-fresh*
 
-# Sensitive files
-*.key
-*.pem
-
-# JavaScript
-node_modules/
-bower_components/
-npm-debug.log
-
-# Python
-*.py[cod]
-venv
-__pycache__
-*.egg-info
-
-# Ruby
-*.gem
-.bundle
-Gemfile.lock
-*.rbc
-
-# Java
-*.class
-*.[jwe]ar
-
-# C, C++
-*.o
-*.so
-*.la
-*.a
-*.dll
-
 # Executables
 *.out
 *.exe
@@ -69,15 +37,6 @@ logs
 *.bak
 *.lnk
 Thumbs.db
-
-# Ansible
-*.retry
-
-# Vagrant
-.vagrant
-
-# IDEA
-.idea/*
 
 # Other VCS
 .hg

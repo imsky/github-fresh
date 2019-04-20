@@ -10,12 +10,23 @@ LDFLAGS += -X "main.Version=${VERSION}"
 .PHONY: all
 all: quality build docker
 
+.PHONY: quality
+quality:
+	go vet
+	go fmt
+
+.PHONY: clean
+clean:
+	rm -f github-fresh*
+
 .PHONY: build
-build: build-darwin build-linux
+build: clean build-darwin build-linux
 
 build-%:
 	GOOS=$* GOARCH=386 go build -ldflags '${LDFLAGS}' -o ${NAME}-$*
 
+# todo: hadolint
+# todo: sanity check
 .PHONY: docker
 docker:
 	docker build \
@@ -24,8 +35,3 @@ docker:
 	--build-arg COMMIT="${COMMIT}" \
 	--build-arg TIMESTAMP="${TIMESTAMP}" \
 	--tag ${NAME} .
-
-.PHONY: quality
-quality:
-	go vet
-	go fmt

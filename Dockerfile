@@ -12,4 +12,5 @@ ARG NAME
 ARG VERSION
 ARG COMMIT
 ARG TIMESTAMP
+
 LABEL maintainer="Ivan Malopinsky" org.label-schema.name="${NAME}" org.label-schema.build-date="${TIMESTAMP}" org.label-schema.vcs-ref="${COMMIT}" org.label-schema.version="${VERSION}" org.label-schema.schema-version="1.0"
