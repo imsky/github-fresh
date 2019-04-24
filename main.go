@@ -217,12 +217,15 @@ func setupUsage() {
 }
 
 func main() {
-	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token")
-	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user")
-	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo")
-	var days = flag.Int("days", getDays(os.Getenv("GITHUB_FRESH_DAYS")), "Max age in days of checked pull requests")
+	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token (GITHUB_FRESH_TOKEN)")
+	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user (GITHUB_FRESH_USER)")
+	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo (GITHUB_FRESH_REPO)")
+	var days = flag.Int("days", getDays(os.Getenv("GITHUB_FRESH_DAYS")), "Max age in days of checked pull requests (GITHUB_FRESH_DAYS)")
 	setupUsage()
 	flag.Parse()
+	if len(flag.Args()) == 0 {
+		flag.Usage()
+	}
 	ex := NewExecutor(*token)
 	err := Run(*user, *repo, *days, *ex)
 	if err != nil {
