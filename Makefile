@@ -12,7 +12,7 @@ DOCKER=$(shell command -v docker)
 .PHONY: all
 all: quality test build
 ifneq (${DOCKER},)
-	make docker
+	${MAKE} docker
 else
 	:
 endif
@@ -48,5 +48,6 @@ docker:
 	--build-arg COMMIT="${COMMIT}" \
 	--build-arg BUILD_DATE="${TIMESTAMP}" \
 	--build-arg LDFLAGS='${LDFLAGS}' \
-	--tag ${NAME}:${VERSION} .
-	docker run -it ${NAME}:${VERSION} -- -help 2>&1 | grep -F 'github-fresh v${VERSION} ${TIMESTAMP} ${COMMIT}'
+	--tag ${NAME} .
+	docker tag ${NAME} ${NAME}:${VERSION}
+	docker run -it ${NAME}:${VERSION} -- -help 2>&1 | grep -F '${NAME} v${VERSION} ${TIMESTAMP} ${COMMIT}'
