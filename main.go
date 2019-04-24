@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -14,11 +15,9 @@ import (
 // todo: dry run
 // todo: docs
 // todo: comments
-// todo: staticcheck
-// todo: errcheck, structcheck, varcheck
-// todo: test
 // todo: GitHub action
 
+//todo: add comment
 var (
 	BuildTime string
 	BuildSHA  string
@@ -43,34 +42,42 @@ type branch struct {
 	} `json:"commit"`
 }
 
-type githubAPI struct {
+type executor struct {
 	client *http.Client
 	token  string
+	http   bool
+	dry    bool
 }
 
-func NewGitHubAPI(token string) *githubAPI {
-	api := githubAPI{
+//todo: add comment
+func NewExecutor(token string) *executor {
+	ex := executor{
 		client: &http.Client{},
 		token:  token,
 	}
 
-	return &api
+	return &ex
 }
 
-func (api *githubAPI) makeRequest(method string, url string) (res *http.Response, err error) {
-	req, err := http.NewRequest(method, "https://api.github.com/"+url, nil)
+func (ex *executor) makeRequest(method string, url string) (res *http.Response, err error) {
+	protocol := "https"
+	if ex.http {
+		protocol = "http"
+	}
+
+	req, err := http.NewRequest(method, protocol+"://api.github.com/"+url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", "token "+api.token)
-	res, err = api.client.Do(req)
+	req.Header.Add("Authorization", "token "+ex.token)
+	res, err = ex.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-func (api *githubAPI) listClosedPullRequests(user string, repo string, days int) []pullRequest {
+func (ex *executor) listClosedPullRequests(user string, repo string, days int) []pullRequest {
 	pullRequests := make([]pullRequest, 0, 1)
 	now := time.Now()
 	maxAgeHours := float64(days * 24)
@@ -80,7 +87,7 @@ func (api *githubAPI) listClosedPullRequests(user string, repo string, days int)
 	}
 
 	for page := 1; ; page++ {
-		res, err := api.makeRequest("GET", "repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page))
+		res, err := ex.makeRequest("GET", "repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page))
 
 		if err != nil {
 			log.Fatalln("Failed to get pull requests", err)
@@ -96,11 +103,11 @@ func (api *githubAPI) listClosedPullRequests(user string, repo string, days int)
 			log.Fatalln("Failed to parse pull requests", err)
 		}
 
-		if len(prs.PullRequests) == 0 {
+		pullRequests = append(pullRequests, prs.PullRequests...)
+
+		if len(prs.PullRequests) == 0 || len(prs.PullRequests) < 100 {
 			break
 		}
-
-		pullRequests = append(pullRequests, prs.PullRequests...)
 
 		lastPullRequest := prs.PullRequests[len(prs.PullRequests)-1]
 		lastPullRequestAge := now.Sub(lastPullRequest.ClosedAt).Hours()
@@ -113,11 +120,11 @@ func (api *githubAPI) listClosedPullRequests(user string, repo string, days int)
 	return pullRequests
 }
 
-func (api *githubAPI) listUnprotectedBranches(user string, repo string) []branch {
+func (ex *executor) listUnprotectedBranches(user string, repo string) []branch {
 	branches := make([]branch, 0, 1)
 
 	for page := 1; ; page++ {
-		res, err := api.makeRequest("GET", "repos/"+user+"/"+repo+"/branches?protected=false&per_page=100&page="+strconv.Itoa(page))
+		res, err := ex.makeRequest("GET", "repos/"+user+"/"+repo+"/branches?protected=false&per_page=100&page="+strconv.Itoa(page))
 
 		if err != nil {
 			log.Fatalln("Failed to get branches", err)
@@ -133,19 +140,19 @@ func (api *githubAPI) listUnprotectedBranches(user string, repo string) []branch
 			log.Fatalln("Failed to parse branches", err)
 		}
 
-		if len(bs.Branches) == 0 {
+		branches = append(branches, bs.Branches...)
+
+		if len(bs.Branches) == 0 || len(bs.Branches) < 100 {
 			break
 		}
-
-		branches = append(branches, bs.Branches...)
 	}
 
 	return branches
 }
 
-func (api *githubAPI) deleteBranches(user string, repo string, branches []string) {
+func (ex *executor) deleteBranches(user string, repo string, branches []string) {
 	for _, branch := range branches {
-		_, err := api.makeRequest("DELETE", "repos/"+user+"/"+repo+"/git/refs/heads/"+branch)
+		_, err := ex.makeRequest("DELETE", "repos/"+user+"/"+repo+"/git/refs/heads/"+branch)
 
 		if err != nil {
 			log.Fatalln("Failed to delete branch", branch, err)
@@ -155,7 +162,7 @@ func (api *githubAPI) deleteBranches(user string, repo string, branches []string
 	}
 }
 
-func listStaleBranches(closedPullRequests []pullRequest, branches []branch) []string {
+func getStaleBranches(branches []branch, pullRequests []pullRequest) []string {
 	branchesByName := make(map[string]branch)
 	staleBranches := make([]string, 0, 1)
 
@@ -163,7 +170,7 @@ func listStaleBranches(closedPullRequests []pullRequest, branches []branch) []st
 		branchesByName[b.Name] = b
 	}
 
-	for _, pr := range closedPullRequests {
+	for _, pr := range pullRequests {
 		staleBranch, branchExists := branchesByName[pr.Head.Ref]
 		if branchExists && staleBranch.Commit.SHA == pr.Head.SHA {
 			staleBranches = append(staleBranches, pr.Head.Ref)
@@ -173,49 +180,48 @@ func listStaleBranches(closedPullRequests []pullRequest, branches []branch) []st
 	return staleBranches
 }
 
-func getDays(envVar string) int {
-	envDays := os.Getenv(envVar)
-	if envDays != "" {
-		d, err := strconv.Atoi(envDays)
+func getDays(days string) int {
+	if days != "" {
+		d, err := strconv.Atoi(days)
 		if err == nil {
 			return d
 		}
 	}
-	return 0
+	return 1
 }
 
-func Run(user string, repo string, days int, token string) ([]string, error) {
+//todo: add comment
+func Run(user string, repo string, days int, ex executor) error {
 	var err error
 
 	if user == "" {
-		err = errors.New("Missing user")
+		err = errors.New("missing user")
 	} else if repo == "" {
-		err = errors.New("Missing repo")
+		err = errors.New("missing repo")
 	} else if days < 1 {
-		err = errors.New("Invalid value for days:" + strconv.Itoa(days))
-	} else if token == "" {
-		err = errors.New("Missing token")
+		err = errors.New("invalid value for days (" + strconv.Itoa(days) + ")")
 	}
 
 	if err != nil {
-		return []string{}, err
+		return err
 	}
 
-	api := NewGitHubAPI(token)
-	closedPullRequests := api.listClosedPullRequests(user, repo, days)
-	unprotectedBranches := api.listUnprotectedBranches(user, repo)
-	staleBranches := listStaleBranches(closedPullRequests, unprotectedBranches)
-	api.deleteBranches(user, repo, staleBranches)
-	return staleBranches, err
+	closedPullRequests := ex.listClosedPullRequests(user, repo, days)
+	unprotectedBranches := ex.listUnprotectedBranches(user, repo)
+	staleBranches := getStaleBranches(unprotectedBranches, closedPullRequests)
+	ex.deleteBranches(user, repo, staleBranches)
+	return err
 }
 
 func main() {
+	fmt.Println("github-fresh v" + Version + " " + BuildTime + " " + BuildSHA)
 	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token")
 	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user")
 	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo")
-	var days = flag.Int("days", getDays("GITHUB_FRESH_DAYS"), "Max age in days of checked pull requests")
+	var days = flag.Int("days", getDays(os.Getenv("GITHUB_FRESH_DAYS")), "Max age in days of checked pull requests")
 	flag.Parse()
-	_, err := Run(*user, *repo, *days, *token)
+	ex := NewExecutor(*token)
+	err := Run(*user, *repo, *days, *ex)
 	if err != nil {
 		log.Fatalln(err)
 	}

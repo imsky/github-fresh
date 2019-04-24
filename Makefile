@@ -8,12 +8,17 @@ LDFLAGS += -X "main.BuildSHA=${COMMIT}"
 LDFLAGS += -X "main.Version=${VERSION}"
 
 .PHONY: all
-all: quality build docker
+all: quality test build docker
 
 .PHONY: quality
 quality:
 	go vet
 	go fmt
+	docker run -v ${PWD}:/src -w /src -it golangci/golangci-lint golangci-lint run --enable gocritic --enable gosec --enable golint --enable stylecheck
+
+.PHONY: test
+test:
+	go test -coverprofile=coverage
 
 .PHONY: clean
 clean:
