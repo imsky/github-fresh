@@ -1,7 +1,10 @@
 FROM golang:1.12-alpine AS build
 
 COPY main.go .
-RUN go build -o github-fresh
+
+ARG LDFLAGS
+
+RUN GOOS=linux GOARCH=386 go build -ldflags "${LDFLAGS}" -o github-fresh
 
 FROM scratch
 

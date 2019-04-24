@@ -1,2 +1,7 @@
-github-fresh*
 .git
+*_test.go
+coverage
+github-fresh*
+LICENSE
+Makefile
+*.md

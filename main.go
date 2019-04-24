@@ -22,6 +22,8 @@ var (
 	Version   string
 )
 
+var crash = log.Fatalf
+
 type pullRequest struct {
 	Number   uint64    `json:"number"`
 	ClosedAt time.Time `json:"closed_at"`
@@ -47,8 +49,6 @@ type Executor struct {
 	http   bool
 	dry    bool
 }
-
-var crash = log.Fatalf
 
 // NewExecutor returns a new executor of GitHub operations
 func NewExecutor(token string, dry bool) *Executor {
