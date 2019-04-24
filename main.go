@@ -79,7 +79,7 @@ func (ex *Executor) makeRequest(method string, url string) (res *http.Response, 
 	return res, nil
 }
 
-func (ex *Executor) listClosedPullRequests(user string, repo string, days int) []pullRequest {
+func (ex *Executor) listClosedPullRequests(user string, repo string, days int) ([]pullRequest, error) {
 	pullRequests := make([]pullRequest, 0, 1)
 	now := time.Now()
 	maxAgeHours := float64(days * 24)
@@ -92,7 +92,7 @@ func (ex *Executor) listClosedPullRequests(user string, repo string, days int) [
 		res, err := ex.makeRequest("GET", "repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page))
 
 		if err != nil {
-			log.Fatalln("Failed to get pull requests", err)
+			return pullRequests, errors.New("failed to get pull requests (" + err.Error() + ")")
 		}
 
 		d := json.NewDecoder(res.Body)
@@ -102,7 +102,7 @@ func (ex *Executor) listClosedPullRequests(user string, repo string, days int) [
 		err = d.Decode(&prs.PullRequests)
 
 		if err != nil {
-			log.Fatalln("Failed to parse pull requests", err)
+			return pullRequests, errors.New("failed to parse pull requests (" + err.Error() + ")")
 		}
 
 		pullRequests = append(pullRequests, prs.PullRequests...)
@@ -119,17 +119,17 @@ func (ex *Executor) listClosedPullRequests(user string, repo string, days int) [
 		}
 	}
 
-	return pullRequests
+	return pullRequests, nil
 }
 
-func (ex *Executor) listUnprotectedBranches(user string, repo string) []branch {
+func (ex *Executor) listUnprotectedBranches(user string, repo string) ([]branch, error) {
 	branches := make([]branch, 0, 1)
 
 	for page := 1; ; page++ {
 		res, err := ex.makeRequest("GET", "repos/"+user+"/"+repo+"/branches?protected=false&per_page=100&page="+strconv.Itoa(page))
 
 		if err != nil {
-			log.Fatalln("Failed to get branches", err)
+			return branches, errors.New("failed to get branches (" + err.Error() + ")")
 		}
 
 		d := json.NewDecoder(res.Body)
@@ -139,7 +139,7 @@ func (ex *Executor) listUnprotectedBranches(user string, repo string) []branch {
 		err = d.Decode(&bs.Branches)
 
 		if err != nil {
-			log.Fatalln("Failed to parse branches", err)
+			return branches, errors.New("failed to parse branches (" + err.Error() + ")")
 		}
 
 		branches = append(branches, bs.Branches...)
@@ -149,10 +149,10 @@ func (ex *Executor) listUnprotectedBranches(user string, repo string) []branch {
 		}
 	}
 
-	return branches
+	return branches, nil
 }
 
-func (ex *Executor) deleteBranches(user string, repo string, branches []string) int {
+func (ex *Executor) deleteBranches(user string, repo string, branches []string) (int, error) {
 	deletedBranches := 0
 
 	for _, branch := range branches {
@@ -164,14 +164,14 @@ func (ex *Executor) deleteBranches(user string, repo string, branches []string) 
 		_, err := ex.makeRequest("DELETE", "repos/"+user+"/"+repo+"/git/refs/heads/"+branch)
 
 		if err != nil {
-			log.Fatalln("Failed to delete branch", branch, err)
+			return deletedBranches, errors.New("failed to delete branch " + branch + " (" + err.Error() + ")")
 		}
 
 		log.Println("Deleted branch", branch)
 		deletedBranches++
 	}
 
-	return deletedBranches
+	return deletedBranches, nil
 }
 
 func getStaleBranches(branches []branch, pullRequests []pullRequest) []string {
@@ -221,10 +221,21 @@ func Run(user string, repo string, days int, ex Executor) error {
 		return errors.New("invalid value for days (" + strconv.Itoa(days) + ")")
 	}
 
-	closedPullRequests := ex.listClosedPullRequests(user, repo, days)
-	unprotectedBranches := ex.listUnprotectedBranches(user, repo)
+	var err error
+
+	closedPullRequests, err := ex.listClosedPullRequests(user, repo, days)
+	if err != nil {
+		return err
+	}
+	unprotectedBranches, err := ex.listUnprotectedBranches(user, repo)
+	if err != nil {
+		return err
+	}
 	staleBranches := getStaleBranches(unprotectedBranches, closedPullRequests)
-	db := ex.deleteBranches(user, repo, staleBranches)
+	db, err := ex.deleteBranches(user, repo, staleBranches)
+	if err != nil {
+		return err
+	}
 	log.Println("Deleted " + strconv.Itoa(db) + " branches")
 	return nil
 }

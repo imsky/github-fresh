@@ -54,7 +54,7 @@ func TestGetDays(t *testing.T) {
 
 func TestDryRun(t *testing.T) {
 	ex := NewExecutor("token", true)
-	db := ex.deleteBranches("user", "repo", []string{"branch"})
+	db, _ := ex.deleteBranches("user", "repo", []string{"branch"})
 	if db != 0 {
 		t.Errorf("Expected no branches to be deleted")
 	}
