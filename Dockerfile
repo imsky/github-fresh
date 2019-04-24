@@ -11,6 +11,6 @@ ENTRYPOINT ["/go/github-fresh"]
 ARG NAME
 ARG VERSION
 ARG COMMIT
-ARG TIMESTAMP
+ARG BUILD_DATE
 
-LABEL maintainer="Ivan Malopinsky" org.label-schema.name="${NAME}" org.label-schema.build-date="${TIMESTAMP}" org.label-schema.vcs-ref="${COMMIT}" org.label-schema.version="${VERSION}" org.label-schema.schema-version="1.0"
+LABEL maintainer="Ivan Malopinsky" org.label-schema.name="${NAME}" org.label-schema.build-date="${BUILD_DATE}" org.label-schema.vcs-ref="${COMMIT}" org.label-schema.version="${VERSION}" org.label-schema.schema-version="1.0"

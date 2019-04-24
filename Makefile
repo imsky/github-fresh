@@ -1,5 +1,5 @@
 NAME=github-fresh
-VERSION=0.1.0
+VERSION=0.2.0
 COMMIT=$(shell git rev-parse --short=7 HEAD)
 TIMESTAMP:=$(shell date -u '+%Y-%m-%dT%I:%M:%S%z')
 
@@ -22,7 +22,7 @@ test:
 
 .PHONY: clean
 clean:
-	rm -f github-fresh*
+	rm -f ${NAME}*
 
 .PHONY: build
 build: clean build-darwin build-linux
@@ -38,5 +38,5 @@ docker:
 	--build-arg NAME="${NAME}" \
 	--build-arg VERSION="${VERSION}" \
 	--build-arg COMMIT="${COMMIT}" \
-	--build-arg TIMESTAMP="${TIMESTAMP}" \
+	--build-arg BUILD_DATE="${TIMESTAMP}" \
 	--tag ${NAME}:${VERSION} .

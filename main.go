@@ -12,11 +12,10 @@ import (
 	"time"
 )
 
-// todo: dry run
 // todo: docs
 // todo: GitHub action
 
-//todo: add comment
+// variables used to embed build information in the binary
 var (
 	BuildTime string
 	BuildSHA  string
@@ -46,6 +45,7 @@ type Executor struct {
 	client *http.Client
 	token  string
 	http   bool
+	dry    bool
 }
 
 var crash = log.Fatalf
@@ -153,6 +153,11 @@ func (ex *Executor) listUnprotectedBranches(user string, repo string) []branch {
 
 func (ex *Executor) deleteBranches(user string, repo string, branches []string) {
 	for _, branch := range branches {
+		if ex.dry {
+			log.Println("Will delete branch", branch)
+			continue
+		}
+
 		_, err := ex.makeRequest("DELETE", "repos/"+user+"/"+repo+"/git/refs/heads/"+branch)
 
 		if err != nil {
@@ -191,8 +196,16 @@ func getDays(days string) int {
 	return 1
 }
 
+func getDry(dry string) bool {
+	retval, err := strconv.ParseBool(dry)
+	if err == nil {
+		return retval
+	}
+	return false
+}
+
 // Run finds branches of recently closed pull requests and deletes them
-func Run(user string, repo string, days int, ex Executor) error {
+func Run(user string, repo string, days int, dry bool, ex Executor) error {
 	switch {
 	case user == "":
 		return errors.New("missing user")
@@ -221,13 +234,14 @@ func main() {
 	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user (GITHUB_FRESH_USER)")
 	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo (GITHUB_FRESH_REPO)")
 	var days = flag.Int("days", getDays(os.Getenv("GITHUB_FRESH_DAYS")), "Max age in days of checked pull requests (GITHUB_FRESH_DAYS)")
+	var dry = flag.Bool("dry", getDry(os.Getenv("GITHUB_FRESH_DRY")), "Dry run (GITHUB_FRESH_DRY)")
 	setupUsage()
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		flag.Usage()
 	}
 	ex := NewExecutor(*token)
-	err := Run(*user, *repo, *days, *ex)
+	err := Run(*user, *repo, *days, *dry, *ex)
 	if err != nil {
 		crash(err.Error())
 	}
