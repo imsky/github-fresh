@@ -50,11 +50,12 @@ type Executor struct {
 
 var crash = log.Fatalf
 
-// NewExecutor returns a new executor of GitHub operations given an API token
-func NewExecutor(token string) *Executor {
+// NewExecutor returns a new executor of GitHub operations
+func NewExecutor(token string, dry bool) *Executor {
 	ex := Executor{
 		client: &http.Client{},
 		token:  token,
+		dry:    dry,
 	}
 
 	return &ex
@@ -151,7 +152,9 @@ func (ex *Executor) listUnprotectedBranches(user string, repo string) []branch {
 	return branches
 }
 
-func (ex *Executor) deleteBranches(user string, repo string, branches []string) {
+func (ex *Executor) deleteBranches(user string, repo string, branches []string) int {
+	deletedBranches := 0
+
 	for _, branch := range branches {
 		if ex.dry {
 			log.Println("Will delete branch", branch)
@@ -165,7 +168,10 @@ func (ex *Executor) deleteBranches(user string, repo string, branches []string) 
 		}
 
 		log.Println("Deleted branch", branch)
+		deletedBranches++
 	}
+
+	return deletedBranches
 }
 
 func getStaleBranches(branches []branch, pullRequests []pullRequest) []string {
@@ -205,7 +211,7 @@ func getDry(dry string) bool {
 }
 
 // Run finds branches of recently closed pull requests and deletes them
-func Run(user string, repo string, days int, dry bool, ex Executor) error {
+func Run(user string, repo string, days int, ex Executor) error {
 	switch {
 	case user == "":
 		return errors.New("missing user")
@@ -218,7 +224,8 @@ func Run(user string, repo string, days int, dry bool, ex Executor) error {
 	closedPullRequests := ex.listClosedPullRequests(user, repo, days)
 	unprotectedBranches := ex.listUnprotectedBranches(user, repo)
 	staleBranches := getStaleBranches(unprotectedBranches, closedPullRequests)
-	ex.deleteBranches(user, repo, staleBranches)
+	db := ex.deleteBranches(user, repo, staleBranches)
+	log.Println("Deleted " + strconv.Itoa(db) + " branches")
 	return nil
 }
 
@@ -237,11 +244,12 @@ func main() {
 	var dry = flag.Bool("dry", getDry(os.Getenv("GITHUB_FRESH_DRY")), "Dry run (GITHUB_FRESH_DRY)")
 	setupUsage()
 	flag.Parse()
-	if len(flag.Args()) == 0 {
+	if flag.NFlag() == 0 {
 		flag.Usage()
+		os.Exit(1)
 	}
-	ex := NewExecutor(*token)
-	err := Run(*user, *repo, *days, *dry, *ex)
+	ex := NewExecutor(*token, *dry)
+	err := Run(*user, *repo, *days, *ex)
 	if err != nil {
 		crash(err.Error())
 	}

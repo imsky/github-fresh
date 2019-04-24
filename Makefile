@@ -1,7 +1,7 @@
 NAME=github-fresh
 VERSION=0.2.0
 COMMIT=$(shell git rev-parse --short=7 HEAD)
-TIMESTAMP:=$(shell date -u '+%Y-%m-%dT%I:%M:%S%z')
+TIMESTAMP:=$(shell date -u '+%Y-%m-%dT%I:%M:%SZ')
 
 LDFLAGS += -X "main.BuildTime=${TIMESTAMP}"
 LDFLAGS += -X "main.BuildSHA=${COMMIT}"
@@ -18,7 +18,7 @@ quality:
 
 .PHONY: test
 test:
-	go test -coverprofile=coverage
+	go test -race -coverprofile=coverage
 
 .PHONY: clean
 clean:

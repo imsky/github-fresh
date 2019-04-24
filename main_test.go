@@ -53,9 +53,11 @@ func TestGetDays(t *testing.T) {
 }
 
 func TestDryRun(t *testing.T) {
-	ex := NewExecutor("token")
-	ex.dry = true
-	ex.deleteBranches("user", "repo", []string{"branch"})
+	ex := NewExecutor("token", true)
+	db := ex.deleteBranches("user", "repo", []string{"branch"})
+	if db != 0 {
+		t.Errorf("Expected no branches to be deleted")
+	}
 }
 
 func TestRun(t *testing.T) {
@@ -111,29 +113,29 @@ func TestRun(t *testing.T) {
 	client, teardown := testClient(handler)
 	defer teardown()
 
-	ex := NewExecutor("token")
+	ex := NewExecutor("token", false)
 	ex.client = client
 	ex.http = true
 
-	err := Run("user", "repo", 1, false, *ex)
+	err := Run("user", "repo", 1, *ex)
 
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
-	err = Run("", "repo", 1, false, *ex)
+	err = Run("", "repo", 1, *ex)
 
 	if err == nil {
 		t.Errorf("Expected error on missing user")
 	}
 
-	err = Run("user", "", 1, false, *ex)
+	err = Run("user", "", 1, *ex)
 
 	if err == nil {
 		t.Errorf("Expected error on missing repo")
 	}
 
-	err = Run("user", "repo", 0, false, *ex)
+	err = Run("user", "repo", 0, *ex)
 
 	if err == nil {
 		t.Errorf("Expected error on invalid days")
