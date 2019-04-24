@@ -14,7 +14,6 @@ import (
 
 // todo: dry run
 // todo: docs
-// todo: comments
 // todo: GitHub action
 
 //todo: add comment
@@ -42,16 +41,18 @@ type branch struct {
 	} `json:"commit"`
 }
 
-type executor struct {
+// Executor provides the runtime configuration of github-fresh
+type Executor struct {
 	client *http.Client
 	token  string
 	http   bool
-	dry    bool
 }
 
-//todo: add comment
-func NewExecutor(token string) *executor {
-	ex := executor{
+var crash = log.Fatalf
+
+// NewExecutor returns a new executor of GitHub operations given an API token
+func NewExecutor(token string) *Executor {
+	ex := Executor{
 		client: &http.Client{},
 		token:  token,
 	}
@@ -59,7 +60,7 @@ func NewExecutor(token string) *executor {
 	return &ex
 }
 
-func (ex *executor) makeRequest(method string, url string) (res *http.Response, err error) {
+func (ex *Executor) makeRequest(method string, url string) (res *http.Response, err error) {
 	protocol := "https"
 	if ex.http {
 		protocol = "http"
@@ -77,7 +78,7 @@ func (ex *executor) makeRequest(method string, url string) (res *http.Response, 
 	return res, nil
 }
 
-func (ex *executor) listClosedPullRequests(user string, repo string, days int) []pullRequest {
+func (ex *Executor) listClosedPullRequests(user string, repo string, days int) []pullRequest {
 	pullRequests := make([]pullRequest, 0, 1)
 	now := time.Now()
 	maxAgeHours := float64(days * 24)
@@ -120,7 +121,7 @@ func (ex *executor) listClosedPullRequests(user string, repo string, days int) [
 	return pullRequests
 }
 
-func (ex *executor) listUnprotectedBranches(user string, repo string) []branch {
+func (ex *Executor) listUnprotectedBranches(user string, repo string) []branch {
 	branches := make([]branch, 0, 1)
 
 	for page := 1; ; page++ {
@@ -150,7 +151,7 @@ func (ex *executor) listUnprotectedBranches(user string, repo string) []branch {
 	return branches
 }
 
-func (ex *executor) deleteBranches(user string, repo string, branches []string) {
+func (ex *Executor) deleteBranches(user string, repo string, branches []string) {
 	for _, branch := range branches {
 		_, err := ex.makeRequest("DELETE", "repos/"+user+"/"+repo+"/git/refs/heads/"+branch)
 
@@ -190,39 +191,41 @@ func getDays(days string) int {
 	return 1
 }
 
-//todo: add comment
-func Run(user string, repo string, days int, ex executor) error {
-	var err error
-
-	if user == "" {
-		err = errors.New("missing user")
-	} else if repo == "" {
-		err = errors.New("missing repo")
-	} else if days < 1 {
-		err = errors.New("invalid value for days (" + strconv.Itoa(days) + ")")
-	}
-
-	if err != nil {
-		return err
+// Run finds branches of recently closed pull requests and deletes them
+func Run(user string, repo string, days int, ex Executor) error {
+	switch {
+	case user == "":
+		return errors.New("missing user")
+	case repo == "":
+		return errors.New("missing repo")
+	case days < 1:
+		return errors.New("invalid value for days (" + strconv.Itoa(days) + ")")
 	}
 
 	closedPullRequests := ex.listClosedPullRequests(user, repo, days)
 	unprotectedBranches := ex.listUnprotectedBranches(user, repo)
 	staleBranches := getStaleBranches(unprotectedBranches, closedPullRequests)
 	ex.deleteBranches(user, repo, staleBranches)
-	return err
+	return nil
+}
+
+func setupUsage() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "github-fresh v"+Version+" "+BuildTime+" "+BuildSHA+"\n\n")
+		flag.PrintDefaults()
+	}
 }
 
 func main() {
-	fmt.Println("github-fresh v" + Version + " " + BuildTime + " " + BuildSHA)
 	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token")
 	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user")
 	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo")
 	var days = flag.Int("days", getDays(os.Getenv("GITHUB_FRESH_DAYS")), "Max age in days of checked pull requests")
+	setupUsage()
 	flag.Parse()
 	ex := NewExecutor(*token)
 	err := Run(*user, *repo, *days, *ex)
 	if err != nil {
-		log.Fatalln(err)
+		crash(err.Error())
 	}
 }

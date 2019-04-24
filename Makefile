@@ -14,7 +14,7 @@ all: quality test build docker
 quality:
 	go vet
 	go fmt
-	docker run -v ${PWD}:/src -w /src -it golangci/golangci-lint golangci-lint run --enable gocritic --enable gosec --enable golint --enable stylecheck
+	docker run -v ${PWD}:/src -w /src -it golangci/golangci-lint golangci-lint run --enable gocritic --enable gosec --enable golint --enable stylecheck --exclude-use-default=false
 
 .PHONY: test
 test:
@@ -39,4 +39,4 @@ docker:
 	--build-arg VERSION="${VERSION}" \
 	--build-arg COMMIT="${COMMIT}" \
 	--build-arg TIMESTAMP="${TIMESTAMP}" \
-	--tag ${NAME} .
+	--tag ${NAME}:${VERSION} .
