@@ -8,6 +8,7 @@ LDFLAGS += -X main.BuildSHA=${COMMIT}
 LDFLAGS += -X main.Version=${VERSION}
 
 DOCKER=$(shell command -v docker;)
+TEST_FLAGS?=-race
 
 .PHONY: all
 all: quality test build
@@ -27,7 +28,7 @@ endif
 
 .PHONY: test
 test:
-	go test -race -coverprofile=coverage
+	go test ${TEST_FLAGS} -coverprofile=coverage
 
 .PHONY: clean
 clean:

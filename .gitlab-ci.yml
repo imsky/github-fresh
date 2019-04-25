@@ -4,4 +4,4 @@ test:
   coverage: '/^coverage: (\d+\.\d+%)/'
   script:
   - apk add --no-cache git make g++ linux-headers
-  - make
+  - make TEST_FLAGS=''
