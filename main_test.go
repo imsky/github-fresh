@@ -30,6 +30,10 @@ type mockHTTPResponse struct {
 	body   string
 }
 
+func (r mockHTTPResponse) String() string {
+	return r.method + " " + r.URL
+}
+
 func getResponse(responses []mockHTTPResponse, method string, url string) mockHTTPResponse {
 	for _, res := range responses {
 		if res.method == method && res.URL == url {
@@ -131,6 +135,8 @@ func TestListClosedPullRequests(t *testing.T) {
 func TestRun(t *testing.T) {
 	now := time.Now().UTC()
 
+	expectedRequests := make([]string, 0, 1)
+
 	responses := []mockHTTPResponse{
 		mockHTTPResponse{
 			method: "GET",
@@ -138,7 +144,7 @@ func TestRun(t *testing.T) {
 			body: `[
 				{
 					"number": 1,
-					"closed_at": "` + now.Format(time.RFC3339) + `",
+					"updated_at": "` + now.Format(time.RFC3339) + `",
 					"head": {
 						"ref": "stalebranch",
 						"sha": "1761e021e70d29619ca270046b23bd243f652b98"
@@ -172,6 +178,8 @@ func TestRun(t *testing.T) {
 			t.Fatalf(r.URL.String())
 		}
 
+		expectedRequests = append(expectedRequests, res.String())
+
 		_, err := w.Write([]byte(res.body))
 
 		if err != nil {
@@ -189,6 +197,19 @@ func TestRun(t *testing.T) {
 
 	if err != nil {
 		t.Errorf(err.Error())
+	}
+
+	for _, r := range responses {
+		found := false
+		for _, er := range expectedRequests {
+			if r.String() == er {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected request: " + r.String())
+		}
 	}
 
 	err = Run("", "repo", 1, *ex)
