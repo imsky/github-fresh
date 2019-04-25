@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -60,9 +62,74 @@ func TestDryRun(t *testing.T) {
 	}
 }
 
+func TestListClosedPullRequests(t *testing.T) {
+	now := time.Now()
+
+	prs := make([]pullRequest, 100)
+
+	for i := range prs {
+		prs[i].Number = uint32(i) + 1
+		prs[i].ClosedAt = now
+	}
+
+	firstPageJSON, _ := json.Marshal(prs)
+	firstPageResponse := mockHTTPResponse{
+		method: "GET",
+		URL:    "/repos/user/repo/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=1",
+		body:   string(firstPageJSON),
+	}
+
+	for i := range prs {
+		prs[i].Number += +100
+		prs[i].ClosedAt = now.AddDate(0, 0, 0-(i+1))
+	}
+
+	secondPageJSON, _ := json.Marshal(prs)
+	secondPageResponse := mockHTTPResponse{
+		method: "GET",
+		URL:    "/repos/user/repo/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=2",
+		body:   string(secondPageJSON),
+	}
+
+	thirdPageResponse := mockHTTPResponse{
+		method: "GET",
+		URL:    "/repos/user/repo/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=3",
+		body:   `[]`,
+	}
+
+	responses := []mockHTTPResponse{firstPageResponse, secondPageResponse, thirdPageResponse}
+
+	//todo: DRY this
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		res := getResponse(responses, r.Method, r.URL.String())
+
+		if res.method == "" {
+			t.Fatalf(r.URL.String())
+		}
+
+		_, err := w.Write([]byte(res.body))
+
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+	client, teardown := testClient(handler)
+	defer teardown()
+
+	ex := NewExecutor("token", false)
+	ex.client = client
+	ex.http = true
+
+	pullRequests, _ := ex.listClosedPullRequests("user", "repo", 20)
+
+	if len(pullRequests) != 120 {
+		t.Errorf("Expected only 120 pull requests, got " + strconv.Itoa(len(pullRequests)))
+	}
+}
+
 func TestRun(t *testing.T) {
 	now := time.Now().UTC()
-	//tooLongAgo := time.Date(2010, 1, 1, 1, 1, 1, 1, time.UTC).UTC()
+
 	responses := []mockHTTPResponse{
 		mockHTTPResponse{
 			method: "GET",

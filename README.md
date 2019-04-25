@@ -30,6 +30,8 @@ $ github-fresh -help
 
 ### Releases
 
+Download the binary for your platform from the [releases](https://github.com/imsky/github-fresh/releases) page.
+
 ### Docker
 
 ```sh

@@ -25,7 +25,7 @@ var (
 var crash = log.Fatalf
 
 type pullRequest struct {
-	Number   uint64    `json:"number"`
+	Number   uint32    `json:"number"`
 	ClosedAt time.Time `json:"closed_at"`
 
 	Head struct {
@@ -42,7 +42,7 @@ type branch struct {
 	} `json:"commit"`
 }
 
-// Executor provides the runtime configuration of github-fresh
+// Executor provides runtime configuration and facilities
 type Executor struct {
 	client *http.Client
 	token  string
@@ -82,11 +82,7 @@ func (ex *Executor) makeRequest(method string, url string) (res *http.Response, 
 func (ex *Executor) listClosedPullRequests(user string, repo string, days int) ([]pullRequest, error) {
 	pullRequests := make([]pullRequest, 0, 1)
 	now := time.Now()
-	maxAgeHours := float64(days * 24)
-
-	if maxAgeHours < 24.0 {
-		maxAgeHours = 24.0
-	}
+	maxAgeHours := float64(days*24) + 0.01
 
 	for page := 1; ; page++ {
 		res, err := ex.makeRequest("GET", "repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page))
@@ -105,16 +101,14 @@ func (ex *Executor) listClosedPullRequests(user string, repo string, days int) (
 			return pullRequests, errors.New("failed to parse pull requests (" + err.Error() + ")")
 		}
 
-		pullRequests = append(pullRequests, prs.PullRequests...)
-
-		if len(prs.PullRequests) == 0 || len(prs.PullRequests) < 100 {
-			break
+		for _, pr := range prs.PullRequests {
+			prAge := now.Sub(pr.ClosedAt).Hours()
+			if prAge <= maxAgeHours {
+				pullRequests = append(pullRequests, pr)
+			}
 		}
 
-		lastPullRequest := prs.PullRequests[len(prs.PullRequests)-1]
-		lastPullRequestAge := now.Sub(lastPullRequest.ClosedAt).Hours()
-		//todo: only add pull requests < maxAgeHours?
-		if lastPullRequestAge >= maxAgeHours {
+		if len(prs.PullRequests) == 0 || len(prs.PullRequests) < 100 {
 			break
 		}
 	}
