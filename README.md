@@ -1,5 +1,7 @@
 # github-fresh
 
+[![pipeline status](https://gitlab.com/imsky/github-fresh/badges/master/pipeline.svg)](https://gitlab.com/imsky/github-fresh/commits/master) [![coverage report](https://gitlab.com/imsky/github-fresh/badges/master/coverage.svg)](https://gitlab.com/imsky/github-fresh/commits/master)
+
 github-fresh deletes branches of closed pull requests.
 
 ## Usage
