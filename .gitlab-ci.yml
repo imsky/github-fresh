@@ -1,0 +1,4 @@
+test:
+  coverage: '/^coverage: (\d+\.\d+%)/'
+  script:
+  - make
