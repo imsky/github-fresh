@@ -1,4 +1,7 @@
+image: golang:1.12-alpine
+
 test:
   coverage: '/^coverage: (\d+\.\d+%)/'
   script:
+  - apk add --no-cache git make g++ linux-headers
   - make
