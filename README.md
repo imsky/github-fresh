@@ -1,6 +1,6 @@
 # github-fresh
 
-[![pipeline status](https://gitlab.com/imsky/github-fresh/badges/master/pipeline.svg)](https://gitlab.com/imsky/github-fresh/commits/master) [![coverage report](https://gitlab.com/imsky/github-fresh/badges/master/coverage.svg)](https://gitlab.com/imsky/github-fresh/commits/master)
+[![pipeline status](https://gitlab.com/imsky/github-fresh/badges/master/pipeline.svg)](https://gitlab.com/imsky/github-fresh/commits/master) [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/imsky/github-fresh.svg)](https://hub.docker.com/r/imsky/github-fresh) [![coverage report](https://gitlab.com/imsky/github-fresh/badges/master/coverage.svg)](https://gitlab.com/imsky/github-fresh/commits/master)
 
 github-fresh deletes branches of closed pull requests.
 
