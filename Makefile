@@ -7,7 +7,7 @@ LDFLAGS += -X main.BuildTime=${TIMESTAMP}
 LDFLAGS += -X main.BuildSHA=${COMMIT}
 LDFLAGS += -X main.Version=${VERSION}
 
-DOCKER=$(shell command -v docker)
+DOCKER=$(shell command -v docker;)
 
 .PHONY: all
 all: quality test build
