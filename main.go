@@ -25,8 +25,8 @@ var (
 var crash = log.Fatalf
 
 type pullRequest struct {
-	Number   uint32    `json:"number"`
-	ClosedAt time.Time `json:"closed_at"`
+	Number    uint32    `json:"number"`
+	UpdatedAt time.Time `json:"updated_at"`
 
 	Head struct {
 		Ref string `json:"ref"`
@@ -84,7 +84,7 @@ func (ex *Executor) listClosedPullRequests(user string, repo string, days int) (
 	now := time.Now()
 	maxAgeHours := float64(days*24) + 0.01
 
-	for page := 1; ; page++ {
+	for page, keepGoing := 1, true; keepGoing; page++ {
 		res, err := ex.makeRequest("GET", "repos/"+user+"/"+repo+"/pulls?state=closed&sort=updated&direction=desc&per_page=100&page="+strconv.Itoa(page))
 
 		if err != nil {
@@ -102,10 +102,12 @@ func (ex *Executor) listClosedPullRequests(user string, repo string, days int) (
 		}
 
 		for _, pr := range prs.PullRequests {
-			prAge := now.Sub(pr.ClosedAt).Hours()
-			if prAge <= maxAgeHours {
-				pullRequests = append(pullRequests, pr)
+			prAge := now.Sub(pr.UpdatedAt).Hours()
+			if prAge > maxAgeHours {
+				keepGoing = false
+				break
 			}
+			pullRequests = append(pullRequests, pr)
 		}
 
 		if len(prs.PullRequests) == 0 || len(prs.PullRequests) < 100 {

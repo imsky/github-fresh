@@ -62,6 +62,7 @@ func TestDryRun(t *testing.T) {
 	}
 }
 
+//todo: test a full third page to make sure the function doesn't keep iterating through pages of old pull requests
 func TestListClosedPullRequests(t *testing.T) {
 	now := time.Now()
 
@@ -69,7 +70,7 @@ func TestListClosedPullRequests(t *testing.T) {
 
 	for i := range prs {
 		prs[i].Number = uint32(i) + 1
-		prs[i].ClosedAt = now
+		prs[i].UpdatedAt = now
 	}
 
 	firstPageJSON, _ := json.Marshal(prs)
@@ -81,7 +82,7 @@ func TestListClosedPullRequests(t *testing.T) {
 
 	for i := range prs {
 		prs[i].Number += +100
-		prs[i].ClosedAt = now.AddDate(0, 0, 0-(i+1))
+		prs[i].UpdatedAt = now.AddDate(0, 0, 0-(i+1))
 	}
 
 	secondPageJSON, _ := json.Marshal(prs)
