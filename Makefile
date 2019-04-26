@@ -1,5 +1,5 @@
 NAME=github-fresh
-VERSION=0.7.0
+VERSION=0.8.0
 COMMIT=$(shell git rev-parse --short=7 HEAD)
 TIMESTAMP:=$(shell date -u '+%Y-%m-%dT%I:%M:%SZ')
 

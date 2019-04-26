@@ -30,6 +30,11 @@ $ github-fresh -help
 
 ### Homebrew
 
+```sh
+$ brew tap imsky/github-fresh https://github.com/imsky/github-fresh.git
+$ brew install --HEAD imsky/github-fresh/github-fresh
+```
+
 ### Releases
 
 Download the binary for your platform from the [releases](https://github.com/imsky/github-fresh/releases) page.

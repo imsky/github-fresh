@@ -1,12 +1,17 @@
 class GithubFresh < Formula
   desc "Keep your GitHub repo fresh"
   homepage "https://github.com/imsky/github-fresh"
-  url "https://github.com/imsky/github-fresh/archive/v0.7.0.tar.gz"
-  sha256 "c4c68cb8d4a906f2882f6abd6ed7525189f1edc55156b6a5641876b2fe2ce39d"
+  head "https://github.com/imsky/github-fresh", :using => :git, :tag => "v0.8.0"
+
   depends_on "go" => :build
 
   def install
+    # create github-fresh-darwin in the build directory
     system "make", "build-darwin"
+    # rename the produced binary to the canonical name
+    mv "github-fresh-darwin", "github-fresh"
+    # move github-fresh binary to the right homebrew path
+    bin.install "github-fresh"
   end
 
   test do
