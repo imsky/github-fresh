@@ -7,6 +7,7 @@ LDFLAGS += -X main.BuildTime=${TIMESTAMP}
 LDFLAGS += -X main.BuildSHA=${COMMIT}
 LDFLAGS += -X main.Version=${VERSION}
 
+PREFIX?=${PWD}/
 DOCKER=$(shell command -v docker;)
 TEST_FLAGS?=-race
 
@@ -38,7 +39,7 @@ clean:
 build: clean build-darwin build-linux
 
 build-%:
-	GOOS=$* GOARCH=386 go build -ldflags '${LDFLAGS}' -o ${NAME}-$*
+	GOOS=$* GOARCH=386 go build -ldflags '${LDFLAGS}' -o ${PREFIX}${NAME}-$*
 
 .PHONY: docker
 docker:
