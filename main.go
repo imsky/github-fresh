@@ -14,6 +14,8 @@ import (
 
 // todo: docs
 // todo: GitHub action
+// todo: add minimum age of pull request
+// todo: close old pull requests
 
 // variables used to embed build information in the binary
 var (

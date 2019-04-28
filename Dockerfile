@@ -8,6 +8,7 @@ RUN GOOS=linux GOARCH=386 go build -ldflags "${LDFLAGS}" -o github-fresh
 
 FROM scratch
 
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /go/github-fresh /go/github-fresh
 ENTRYPOINT ["/go/github-fresh"]
 
