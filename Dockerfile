@@ -17,4 +17,8 @@ ARG VERSION
 ARG COMMIT
 ARG BUILD_DATE
 
-LABEL maintainer="Ivan Malopinsky" org.label-schema.name="${NAME}" org.label-schema.build-date="${BUILD_DATE}" org.label-schema.vcs-ref="${COMMIT}" org.label-schema.version="${VERSION}" org.label-schema.schema-version="1.0"
+LABEL maintainer="Ivan Malopinsky" repository="https://github.com/imsky/github-fresh" homepage="https://github.com/imsky/github-fresh"
+
+LABEL org.label-schema.name="${NAME}" org.label-schema.build-date="${BUILD_DATE}" org.label-schema.vcs-ref="${COMMIT}" org.label-schema.version="${VERSION}" org.label-schema.schema-version="1.0"
+
+LABEL com.github.actions.name="${NAME}" com.github.actions.description="Keep your GitHub repo fresh" com.github.actions.icon="github" com.github.actions.color="black"
