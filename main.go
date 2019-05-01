@@ -14,6 +14,7 @@ import (
 
 // todo: docs
 // todo: GitHub action
+// todo: fix blank build vars when using go build
 // todo: add minimum age of pull request
 // todo: close old pull requests
 
@@ -74,9 +75,9 @@ func (ex *Executor) makeRequest(method string, url string) (res *http.Response, 
 		return nil, err
 	}
 	req.Header.Add("Authorization", "token "+ex.token)
-	res, err = ex.client.Do(req)
-	if err != nil {
-		return nil, err
+	res, _ = ex.client.Do(req)
+	if res.StatusCode >= 400 {
+		return res, errors.New(res.Status)
 	}
 	return res, nil
 }

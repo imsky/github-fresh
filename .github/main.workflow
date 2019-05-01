@@ -1,4 +1,4 @@
-workflow "github-fresh" {
+workflow "Run github-fresh on every pull request update" {
   on = "pull_request"
   resolves = ["github-fresh"]
 }

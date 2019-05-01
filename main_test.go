@@ -58,6 +58,27 @@ func TestGetDays(t *testing.T) {
 	}
 }
 
+func TestGetDry(t *testing.T) {
+	dry := getDry("true")
+
+	if dry != true {
+		t.Errorf("Expected parsed dry flag value to equal true")
+	}
+}
+
+func TestDeleteBranches(t *testing.T) {
+	ex := NewExecutor("token", false)
+	n, err := ex.deleteBranches("user", "repo", []string{"somebranch"})
+
+	if n != 0 {
+		t.Errorf("Expected deleted branches to equal 0 due to error")
+	}
+
+	if err == nil {
+		t.Errorf("Expected error due to misconfigured executor")
+	}
+}
+
 func TestDryRun(t *testing.T) {
 	ex := NewExecutor("token", true)
 	db, _ := ex.deleteBranches("user", "repo", []string{"branch"})
