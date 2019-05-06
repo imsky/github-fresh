@@ -4,6 +4,6 @@ workflow "Run github-fresh on every pull request update" {
 }
 
 action "github-fresh" {
-  uses = "imsky/github-fresh@v0.7.0"
+  uses = "imsky/github-fresh@v0.9.0"
   secrets = ["GITHUB_TOKEN"]
 }
