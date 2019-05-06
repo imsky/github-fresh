@@ -8,12 +8,12 @@ github-fresh deletes branches of closed pull requests.
 
 ```bash
 # default usage
-$ github-fresh -user=imsky -repo=github-fresh
+github-fresh -user=imsky -repo=github-fresh
 
 # see what branches would be deleted from pull requests closed in the last month
-$ github-fresh -user=imsky -repo=github-fresh -days=30 -dry=true
+github-fresh -user=imsky -repo=github-fresh -days=30 -dry=true
 
-$ github-fresh -help
+github-fresh -help
   -days int
     	Max age in days of checked pull requests (GITHUB_FRESH_DAYS) (default 1)
   -dry
@@ -31,8 +31,8 @@ $ github-fresh -help
 ### Homebrew
 
 ```sh
-$ brew tap imsky/github-fresh https://github.com/imsky/github-fresh.git
-$ brew install --HEAD imsky/github-fresh/github-fresh
+brew tap imsky/github-fresh https://github.com/imsky/github-fresh.git
+brew install --HEAD imsky/github-fresh/github-fresh
 ```
 
 ### Releases
@@ -42,14 +42,14 @@ Download the binary for your platform from the [releases](https://github.com/ims
 ### Docker
 
 ```sh
-$ docker pull imsky/github-fresh
-$ docker run -it -e GITHUB_FRESH_TOKEN imsky/github-fresh -user=imsky -repo=github-fresh -dry=true
+docker pull imsky/github-fresh
+docker run -it -e GITHUB_FRESH_TOKEN imsky/github-fresh -user=imsky -repo=github-fresh -dry=true
 ```
 
 ### Go
 
 ```sh
-$ go get -u github.com/imsky/github-fresh
+go get -u github.com/imsky/github-fresh
 ```
 
 ## License
