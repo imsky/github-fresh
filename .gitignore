@@ -2,6 +2,7 @@
 # qkst.io/dotfiles/gitignore
 
 github-fresh-*
+github-fresh
 coverage
 
 # Executables

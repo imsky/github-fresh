@@ -12,17 +12,13 @@ DOCKER=$(shell command -v docker;)
 TEST_FLAGS?=-race
 
 .PHONY: all
-all: quality test build
-ifneq (${DOCKER},)
-	${MAKE} docker
-else
-	:
-endif
+all: quality test builddocker
 
 .PHONY: quality
 quality:
 	go vet
 	go fmt
+	go mod tidy
 ifneq (${DOCKER},)
 	docker run -v ${PWD}:/src -w /src -it golangci/golangci-lint golangci-lint run --enable gocritic --enable gosec --enable golint --enable stylecheck --exclude-use-default=false
 endif
@@ -43,6 +39,9 @@ build-%:
 
 .PHONY: docker
 docker:
+ifeq (${DOCKER},)
+	@echo Skipping Docker build because Docker is not installed
+else
 	docker run --rm -i hadolint/hadolint < Dockerfile
 	docker build \
 	--build-arg NAME="${NAME}" \
@@ -53,3 +52,4 @@ docker:
 	--tag ${NAME} .
 	docker tag ${NAME} ${NAME}:${VERSION}
 	docker run -it ${NAME}:${VERSION} -- -help 2>&1 | grep -F '${NAME} v${VERSION} ${TIMESTAMP} ${COMMIT}'
+endif
