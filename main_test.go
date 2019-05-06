@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -44,25 +45,62 @@ func getResponse(responses []mockHTTPResponse, method string, url string) mockHT
 	return mockHTTPResponse{}
 }
 
-func TestGetDays(t *testing.T) {
-	days := getDays("")
+func TestConfig(t *testing.T) {
+	os.Setenv("GITHUB_REPOSITORY", "foo/bar")
+	os.Setenv("GITHUB_TOKEN", "xyzzy")
+	os.Setenv("GITHUB_FRESH_DRY", "true")
 
-	if days != 1 {
-		t.Errorf("Expected default days to equal 1")
+	config := getConfig()
+
+	if config.user != "foo" {
+		t.Errorf("Expected getConfig() to set user to foo")
 	}
 
-	days = getDays("7")
-
-	if days != 7 {
-		t.Errorf("Expected parsed days to equal 7")
+	if config.repo != "bar" {
+		t.Errorf("Expected getConfig() to set repo to bar")
 	}
-}
 
-func TestGetDry(t *testing.T) {
-	dry := getDry("true")
+	if config.token != "xyzzy" {
+		t.Errorf("Expected getConfig() to set token to xyzzy")
+	}
 
-	if dry != true {
-		t.Errorf("Expected parsed dry flag value to equal true")
+	if config.dry != true {
+		t.Errorf("Expected getConfig() to set dry to true")
+	}
+
+	os.Unsetenv("GITHUB_REPOSITORY")
+	os.Unsetenv("GITHUB_TOKEN")
+	os.Unsetenv("GITHUB_FRESH_DRY")
+
+	os.Setenv("GITHUB_FRESH_USER", "abc")
+	os.Setenv("GITHUB_FRESH_REPO", "xyz")
+	os.Setenv("GITHUB_FRESH_TOKEN", "token")
+	os.Setenv("GITHUB_FRESH_DAYS", "15")
+	defer os.Unsetenv("GITHUB_FRESH_USER")
+	defer os.Unsetenv("GITHUB_FRESH_REPO")
+	defer os.Unsetenv("GITHUB_FRESH_TOKEN")
+	defer os.Unsetenv("GITHUB_FRESH_DAYS")
+
+	config = getConfig()
+
+	if config.user != "abc" {
+		t.Errorf("Expected getConfig() to set user to abc")
+	}
+
+	if config.repo != "xyz" {
+		t.Errorf("Expected getConfig() to set repo to xyz")
+	}
+
+	if config.token != "token" {
+		t.Errorf("Expected getConfig() to set token to token")
+	}
+
+	if config.dry != false {
+		t.Errorf("Expected getConfig() to set dry to false")
+	}
+
+	if config.days != 15 {
+		t.Errorf("Expected getConfig() to set days to 15")
 	}
 }
 

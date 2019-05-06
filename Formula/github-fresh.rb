@@ -1,7 +1,7 @@
 class GithubFresh < Formula
   desc "Keep your GitHub repo fresh"
   homepage "https://github.com/imsky/github-fresh"
-  head "https://github.com/imsky/github-fresh", :using => :git, :tag => "v0.8.0"
+  head "https://github.com/imsky/github-fresh", :using => :git, :tag => "v0.9.0"
 
   depends_on "go" => :build
 

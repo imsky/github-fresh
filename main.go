@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -191,22 +192,64 @@ func getStaleBranches(branches []branch, pullRequests []pullRequest) []string {
 	return staleBranches
 }
 
-func getDays(days string) int {
-	if days != "" {
-		d, err := strconv.Atoi(days)
-		if err == nil {
-			return d
+func getConfig() struct {
+	token, user, repo string
+	days              int
+	dry               bool
+} {
+	var config struct {
+		token string
+		user  string
+		repo  string
+		days  int
+		dry   bool
+	}
+
+	for _, s := range []string{"GITHUB_FRESH_TOKEN", "GITHUB_TOKEN"} {
+		if os.Getenv(s) != "" {
+			config.token = os.Getenv(s)
 		}
 	}
-	return 1
-}
 
-func getDry(dry string) bool {
-	retval, err := strconv.ParseBool(dry)
-	if err == nil {
-		return retval
+	githubRepository := os.Getenv("GITHUB_REPOSITORY")
+
+	if githubRepository != "" && strings.Contains(githubRepository, "/") {
+		split := strings.Split(githubRepository, "/")
+		config.user = split[0]
+		config.repo = split[1]
 	}
-	return false
+
+	if config.user == "" {
+		config.user = os.Getenv("GITHUB_FRESH_USER")
+	}
+
+	if config.repo == "" {
+		config.repo = os.Getenv("GITHUB_FRESH_REPO")
+	}
+
+	envDays := os.Getenv("GITHUB_FRESH_DAYS")
+
+	if envDays != "" {
+		d, err := strconv.Atoi(envDays)
+		if err == nil {
+			config.days = d
+		}
+	}
+
+	if config.days == 0 {
+		config.days = 1
+	}
+
+	envDry := os.Getenv("GITHUB_FRESH_DRY")
+
+	if envDry != "" {
+		r, err := strconv.ParseBool(envDry)
+		if err == nil {
+			config.dry = r
+		}
+	}
+
+	return config
 }
 
 // Run finds branches of recently closed pull requests and deletes them
@@ -247,11 +290,12 @@ func setupUsage() {
 }
 
 func main() {
-	var token = flag.String("token", os.Getenv("GITHUB_FRESH_TOKEN"), "GitHub API token (GITHUB_FRESH_TOKEN)")
-	var user = flag.String("user", os.Getenv("GITHUB_FRESH_USER"), "GitHub user (GITHUB_FRESH_USER)")
-	var repo = flag.String("repo", os.Getenv("GITHUB_FRESH_REPO"), "GitHub repo (GITHUB_FRESH_REPO)")
-	var days = flag.Int("days", getDays(os.Getenv("GITHUB_FRESH_DAYS")), "Max age in days of checked pull requests (GITHUB_FRESH_DAYS)")
-	var dry = flag.Bool("dry", getDry(os.Getenv("GITHUB_FRESH_DRY")), "Dry run (GITHUB_FRESH_DRY)")
+	config := getConfig()
+	var token = flag.String("token", config.token, "GitHub API token (GITHUB_FRESH_TOKEN)")
+	var user = flag.String("user", config.user, "GitHub user (GITHUB_FRESH_USER)")
+	var repo = flag.String("repo", config.repo, "GitHub repo (GITHUB_FRESH_REPO)")
+	var days = flag.Int("days", config.days, "Max age in days of checked pull requests (GITHUB_FRESH_DAYS)")
+	var dry = flag.Bool("dry", config.dry, "Dry run (GITHUB_FRESH_DRY)")
 	setupUsage()
 	flag.Parse()
 	if flag.NFlag() == 0 {
