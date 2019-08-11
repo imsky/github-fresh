@@ -1,0 +1,9 @@
+name: Run github-fresh on every pull request update
+on: pull_request
+jobs:
+  github-fresh:
+    steps:
+      - name: github-fresh
+        uses: imsky/github-fresh@v0.9.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
